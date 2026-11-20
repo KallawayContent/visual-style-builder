@@ -15,7 +15,7 @@ Check the operating system first, then follow ONE section below:
 
 Free disk space needed: about 3 GB.
 
-Get the code if you are not inside it already: `git clone https://github.com/samuelcodinggod/visual-style-builder.git`, then
+Get the code if you are not inside it already: `git clone https://github.com/KallawayContent/visual-style-builder.git`, then
 `cd visual-style-builder`.
 
 ## A. macOS

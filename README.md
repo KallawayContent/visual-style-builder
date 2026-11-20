@@ -36,7 +36,7 @@ can fix it with AGENT_SETUP.md. Linux works like Windows (portable mode) with yo
 Open Codex (or any coding agent that can run commands on your computer) in an empty folder and paste:
 
 ```
-Clone https://github.com/samuelcodinggod/visual-style-builder and follow its AGENT_SETUP.md to install it and open the site.
+Clone https://github.com/KallawayContent/visual-style-builder and follow its AGENT_SETUP.md to install it and open the site.
 ```
 
 ## Set it up by hand
@@ -44,7 +44,7 @@ Clone https://github.com/samuelcodinggod/visual-style-builder and follow its AGE
 Mac:
 
 ```sh
-git clone https://github.com/samuelcodinggod/visual-style-builder.git
+git clone https://github.com/KallawayContent/visual-style-builder.git
 cd visual-style-builder
 ./setup.sh        # 5-15 minutes the first time
 ./start.sh        # opens http://127.0.0.1:5190
