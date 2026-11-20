@@ -1,0 +1,14 @@
+node_modules/
+.venv/
+data/
+uploads/
+models/
+.env
+app/public/data
+analyzer/personmatte
+analyzer/textboxes
+analyzer/visiontags
+analyzer/rects
+__pycache__/
+.DS_Store
+dist/
