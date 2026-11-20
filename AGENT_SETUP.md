@@ -47,6 +47,28 @@ How the Windows version differs (do not try to "fix" these, they are by design):
 replace `prep.sh` and the Swift tools (`*.swift` are Mac-only and are not built on Windows); the server picks them by itself
 (`process.platform`). The on-screen text is read 5 times a second (10 on a Mac). B-roll kinds are named from flatness + faces.
 
+## Analyze videos from code (for an agent doing a bigger task)
+
+The user may ask you to analyze many videos (for example the top videos of their niche) and use the results. The site has a
+local API; start it first (section A or B, step "Start") and keep it running. Base URL: http://127.0.0.1:5190
+
+1. **A link:** `POST /api/fetch` with JSON `{"url": "<Instagram / TikTok / YouTube link>"}`.
+   - Answer JSON `{"id": "<id>"}` = this video was analyzed before: go to step 3.
+   - Answer `video/mp4` = the downloaded video (headers `x-filename`, `x-handle`): send it to step 2.
+   - Status 429 = wait the seconds it says (one download at a time, 8 s apart, so the sites do not block it). Other errors = a
+     private or blocked video: skip it or ask the user for the file.
+2. **A file:** `POST /api/analyze` with the video file as the body and the headers `x-filename` (URL-encoded name) and
+   `x-handle` (optional, e.g. `@creator`). The answer streams text lines; the last one is `done <id>` (or `error ...`).
+   1-4 minutes for a new video. If the stream breaks, poll `GET /api/job?id=<id>` until `"done": true`.
+   Example: `curl -s -N -X POST --data-binary @video.mp4 -H "x-filename: video.mp4" http://127.0.0.1:5190/api/analyze | tail -1`
+3. **Read the result:** `data/<id>/style.json` = the 11 parts (`components.<key>.headline`, `.specs`, `.rules`, `.data`; keys:
+   layout, pace, person, broll, broll_framing, grade, subtitles, typography, textcolor, motion, set).
+   `data/<id>/analysis.json` = the timeline: `words` (each spoken word with `t0`, `t1`), `captions` (on-screen text with `t0`,
+   `t1`, `text`, `kind` caption/title, `box` [x, y, w, h] from the top left, 0-1), `cuts` (frame numbers, `fps`), `shots`,
+   `layout_runs`, `inserts` (B-roll pictures over the speaker: `t0`, `t1`, `rect`, `where`). For a HOOK, read everything with
+   `t0` under 3 seconds. Crops of the parts are in `data/<id>/parts/`.
+4. Analyses are also shown in the site under "Previous videos", so the user can open each one and save the parts they like.
+
 ## Check that it works (both)
 
 Tell the user to test it:
