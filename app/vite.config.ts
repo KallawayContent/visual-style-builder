@@ -190,7 +190,18 @@ function fetchApi() {
   const GAP = 8;
   let busy = false, last = 0;
   const dir = () => path.join(SM, "uploads", "links");
-  const key = (u: string) => { try { const x = new URL(u); return (x.hostname.replace(/^www\.|^m\./, "") + x.pathname).replace(/\/+$/, "").toLowerCase(); } catch { return u; } };
+  // one key per video, whatever form the link has: Instagram /p/, /reel/, /reels/, /tv/ + the code; YouTube watch?v=, youtu.be/, /shorts/;
+  // TikTok /video/<id>; anything else = the address without its ?query (tracking codes like ?igsh=)
+  const key = (u: string) => {
+    try {
+      const x = new URL(u); const host = x.hostname.replace(/^(www|m|vm)\./, "").toLowerCase(); const parts = x.pathname.split("/").filter(Boolean);
+      if (host.endsWith("instagram.com")) { const i = parts.findIndex((q) => ["p", "reel", "reels", "tv"].includes(q.toLowerCase())); if (i >= 0 && parts[i + 1]) return "ig:" + parts[i + 1].toLowerCase(); }
+      if (host === "youtu.be" && parts[0]) return "yt:" + parts[0];
+      if (host.endsWith("youtube.com")) { const v = x.searchParams.get("v") || (parts[0] === "shorts" ? parts[1] : ""); if (v) return "yt:" + v; }
+      if (host.endsWith("tiktok.com")) { const i = parts.indexOf("video"); if (i >= 0 && parts[i + 1]) return "tt:" + parts[i + 1]; }
+      return (host + x.pathname).replace(/\/+$/, "").toLowerCase();
+    } catch { return u; }
+  };
   return {
     name: "fetch-api",
     configureServer(server: any) {
