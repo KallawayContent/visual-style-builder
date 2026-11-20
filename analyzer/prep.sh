@@ -7,6 +7,7 @@ SM="${0:A:h:h}"   # the repository folder (works wherever it is unzipped)
 [ -f "$SM/.env" ] && source "$SM/.env"   # written by setup.sh: SM_PY, SM_RVM, SM_WHISPER_MODEL
 PY="${SM_PY:-$SM/.venv/bin/python}"
 RVM="${SM_RVM:-$PY}"
+export PATH="$SM/.tools/bin:/opt/homebrew/bin:/usr/local/bin:$PATH"   # ffmpeg / ffprobe: downloaded by setup.sh, or Homebrew's
 SRC="$1"; ID="${2:?}"; MAXSEC="${MAXSEC:-60}"
 D="$SM/data/$ID"; mkdir -p "$D/mattes"
 ffmpeg -v error -y -t "$MAXSEC" -i "$SRC" -vf "scale=540:960:force_original_aspect_ratio=increase,crop=540:960,fps=30" -c:v libx264 -crf 14 -pix_fmt yuv420p -an "$D/w.mp4"
@@ -19,14 +20,18 @@ else
   ffmpeg -v error -y -t "$MAXSEC" -i "$SRC" -an -c:v libx264 -crf 16 -preset veryfast -pix_fmt yuv420p "$D/src_cut.mp4"
 fi
 N=$(ffprobe -v error -count_frames -select_streams v:0 -show_entries stream=nb_read_frames -of csv=p=0 "$D/w.mp4")
-python3 -c "print('\n'.join(str((i+0.5)/30) for i in range(0, $N, 2)))" > "$D/times.txt"
+"$PY" -c "print('\n'.join(str((i+0.5)/30) for i in range(0, $N, 2)))" > "$D/times.txt"
 M=$(wc -l < "$D/times.txt" | tr -d ' ')
 echo "frames $N"
 "$SM/analyzer/textboxes" "$D/src_cut.mp4" 10 "$D/text.jsonl" &
 "$SM/analyzer/personmatte" "$D/w.mp4" "$D/mattes" "$D/times.txt" > /dev/null &
 PM=$!
 if [ -s "$D/audio16.wav" ]; then
-  whisper-cli -m "${SM_WHISPER_MODEL:-$SM/models/ggml-large-v3-turbo.bin}" -f "$D/audio16.wav" -ml 1 -oj -of "$D/words" > /dev/null 2>&1 &
+  if [[ -n "${SM_WHISPER_MODEL:-}" && -s "$SM_WHISPER_MODEL" ]] && command -v whisper-cli >/dev/null; then   # whisper.cpp (Homebrew)
+    whisper-cli -m "$SM_WHISPER_MODEL" -f "$D/audio16.wav" -ml 1 -oj -of "$D/words" > /dev/null 2>&1 &
+  else   # faster-whisper in the Python environment (the default setup: no Homebrew needed)
+    "$PY" "$SM/analyzer/portable.py" words "$D/audio16.wav" "$D/words.json" > /dev/null 2>&1 &
+  fi
 else
   echo '{"transcription": []}' > "$D/words.json"
 fi

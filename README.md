@@ -20,10 +20,10 @@ Everything runs on your own computer (Mac or Windows). No account, no paid API, 
 
 | | Mac | Windows 10 / 11 |
 |---|---|---|
-| Analyzer | Apple Vision (person cut-out, text, faces, cards) + Robust Video Matting + whisper.cpp | Free cross-platform tools: Robust Video Matting, EasyOCR, OpenCV, faster-whisper |
-| Install | `./setup.sh` (Homebrew) | `setup.cmd` (winget) |
-| Start | `./start.sh` | `start.cmd` |
-| Disk space | about 3 GB (`LITE=1`: 1.5 GB) | about 3 GB |
+| Analyzer | Apple Vision (person cut-out, text, faces, cards) + Robust Video Matting + faster-whisper | Free cross-platform tools: Robust Video Matting, EasyOCR, OpenCV, faster-whisper |
+| Install | the one line below (needs nothing else) | the one line below (winget installs Python, Node.js, FFmpeg) |
+| Start | "Start Visual Style Builder" on the Desktop, or `./start.sh` | `start.cmd` |
+| Disk space | about 3-4 GB (`LITE=1`: 1.5 GB) | about 3 GB |
 | Speed (a 47 s video) | about 3 minutes | about 3-6 minutes (faster with an NVIDIA graphics card) |
 
 Both versions give the same 11 parts. The Mac version is the reference; the Windows version was checked against it on the same
@@ -31,30 +31,40 @@ videos (same results on most parts; it names B-roll kinds less exactly, because 
 The Windows version was tested on a Mac in its portable mode, not yet on a Windows computer: if the setup stops, the AI agent
 can fix it with AGENT_SETUP.md. Linux works like Windows (portable mode) with your own package manager.
 
-## Set it up with an AI agent (easiest)
+## Install it (one line, nothing else needed)
 
-Open Codex (or any coding agent that can run commands on your computer) in an empty folder and paste:
-
-```
-Clone https://github.com/KallawayContent/visual-style-builder and follow its AGENT_SETUP.md to install it and open the site.
-```
-
-## Set it up by hand
-
-Mac:
+**Mac** (macOS 12 or newer): open the **Terminal** app (Cmd+Space, type Terminal, press Return), paste this line, press Return:
 
 ```sh
-git clone https://github.com/KallawayContent/visual-style-builder.git
-cd visual-style-builder
-./setup.sh        # 5-15 minutes the first time
-./start.sh        # opens http://127.0.0.1:5190
+curl -fsSL https://raw.githubusercontent.com/KallawayContent/visual-style-builder/main/install.sh | zsh
 ```
 
-Options: `LITE=1 ./setup.sh` skips PyTorch (smaller, softer person cut-out). `WHISPER_MODEL=large-v3-turbo ./setup.sh`
-downloads a larger speech model for more exact word timing.
+**Windows 10 / 11**: open **PowerShell** (Start menu, type PowerShell, press Enter), paste this line, press Enter:
 
-Windows: download the repository (Code > Download ZIP, or `git clone`), open the folder, double-click **setup.cmd**
-(10-20 minutes the first time), then double-click **start.cmd** (it opens http://127.0.0.1:5190; keep its window open).
+```powershell
+irm https://raw.githubusercontent.com/KallawayContent/visual-style-builder/main/install.ps1 | iex
+```
+
+It takes 5-15 minutes the first time, then the site opens in your browser. Keep the window open while you use it. Next time on
+a Mac, double-click **Start Visual Style Builder** on the Desktop; on Windows, double-click `start.cmd` in the
+`visual-style-builder` folder of your user folder.
+
+The Mac install needs no git, no Homebrew, no Xcode tools and no password: it brings its own Python, Node.js and FFmpeg
+into the folder `~/visual-style-builder`. To remove everything, delete that folder.
+
+## Or let an AI agent install it
+
+Open the **Codex app** (or another agent that can run commands on your computer; a chat window cannot) and paste:
+
+```
+Install the Visual Style Builder from https://github.com/KallawayContent/visual-style-builder and open it. Follow its AGENT_SETUP.md (on a Mac: no git, use the install line).
+```
+
+## Options
+
+- Mac: `LITE=1 ./setup.sh` skips PyTorch (smaller, softer person cut-out). `WHISPER_MODEL=small.en ./setup.sh` uses a bigger
+  speech model for more exact word timing. Run them in `~/visual-style-builder`.
+- Developers: `git clone` works too; then `./setup.sh` and `./start.sh` (Mac) or `setup.cmd` and `start.cmd` (Windows).
 
 ## How it works
 

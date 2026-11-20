@@ -226,8 +226,21 @@ def words(audio, out, model_name=None):
     json.dump({"result": {"language": info.language}, "transcription": tr}, open(out, "w"))
 
 
-def warmup():
-    """Download every model now (setup), so a download problem shows during the setup and not on the first video."""
+def warmup(mode="all"):
+    """Download every model now (setup), so a download problem shows during the setup and not on the first video.
+    mode "mac": only the models of the Mac version (the speech model + Robust Video Matting if PyTorch is installed);
+    Apple Vision does the text, the faces and the person cut-out there."""
+    if mode == "mac":
+        name = os.environ.get("SM_WHISPER", "base.en")
+        print(f"models: the speech model (faster-whisper {name})", flush=True)
+        from faster_whisper import WhisperModel; WhisperModel(name, device="cpu", compute_type="int8")
+        try:
+            import torch
+        except ImportError:
+            print("models: no PyTorch (lite setup): Apple Vision makes the person cut-out", flush=True); return
+        print("models: the person cut-out (Robust Video Matting)", flush=True)
+        torch.hub.load("PeterL1n/RobustVideoMatting", "resnet50", trust_repo=True, skip_validation=True)
+        print("models: all downloaded", flush=True); return
     import torch
     print("models: EasyOCR (English)", flush=True); import easyocr; easyocr.Reader(["en"], gpu=False, verbose=False)
     print("models: the face detector (OpenCV YuNet)", flush=True); _yunet()
@@ -242,7 +255,7 @@ def warmup():
 
 if __name__ == "__main__":
     cmd, args = sys.argv[1], sys.argv[2:]
-    if cmd == "warmup": warmup(); sys.exit(0)
+    if cmd == "warmup": warmup(*args[:1]); sys.exit(0)
     if cmd == "textboxes": textboxes(*args[:3])
     elif cmd == "visiontags": visiontags(args)
     elif cmd == "rects": rects(args)

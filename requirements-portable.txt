@@ -3,5 +3,3 @@
 torch
 torchvision
 easyocr
-faster-whisper
-yt-dlp

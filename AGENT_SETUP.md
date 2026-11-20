@@ -4,35 +4,50 @@ You are installing **Visual Style Builder** for the user on their computer and o
 **Do not rewrite, refactor or "improve" the code.** Your job is the installation. Change a file only to fix an install
 problem on this computer, and tell the user what you changed.
 
+## If you cannot run commands on the user's computer
+
+A chat app (a chat window with no terminal) cannot install this. Do not explain git, Homebrew or
+developer tools. Give the user exactly ONE line and tell them where to paste it:
+- **Mac**: open the Terminal app (Cmd+Space, type Terminal, press Return), paste this line, press Return:
+  `curl -fsSL https://raw.githubusercontent.com/KallawayContent/visual-style-builder/main/install.sh | zsh`
+- **Windows**: open PowerShell (Start menu, type PowerShell, press Enter), paste this line, press Enter:
+  `irm https://raw.githubusercontent.com/KallawayContent/visual-style-builder/main/install.ps1 | iex`
+
+It takes 5-15 minutes and opens the site in the browser by itself. Or tell the user to use the Codex app (or another agent
+that can run commands on their computer) and paste the same request there.
+
 ## 0. Which computer is this?
 
 Check the operating system first, then follow ONE section below:
-- **macOS** -> section A (the Apple Vision version, `setup.sh`).
+- **macOS** -> section A.
 - **Windows 10 / 11** -> section B (the portable version, `setup.ps1`).
 - **Linux** -> section B's steps by hand: `python3 -m venv .venv`, `.venv/bin/pip install -r requirements-portable.txt`,
   `.venv/bin/python analyzer/portable.py warmup`, `cd app && npm ci`, `ln -s ../../data app/public/data`, then
   `cd app && npx vite --port 5190 --host 127.0.0.1`. Needs ffmpeg and Node 18+ from the package manager.
 
-Free disk space needed: about 3 GB.
+Free disk space needed: about 4 GB.
 
-Get the code if you are not inside it already: `git clone https://github.com/KallawayContent/visual-style-builder.git`, then
-`cd visual-style-builder`.
+**Do not use `git clone` on a Mac**, and do not run `python3`, `git`, `brew` or `xcode-select` there. On a Mac with no
+developer tools, `git` and `python3` open Apple's "install command line tools" window and stop. The installers below need
+none of them: they download the code with `curl` and bring their own Python, Node.js and FFmpeg.
 
-## A. macOS
+## A. macOS (12 or newer)
 
-1. Run `./setup.sh`. It prints 8 numbered steps and takes 5-15 minutes the first time (PyTorch is about 1 GB). It is safe to
-   run again; it skips finished steps. It can stop for two things only the user can do. Tell the user exactly what to do, wait,
-   then run `./setup.sh` again:
-   - **Apple command line tools missing**: the user runs `xcode-select --install` and clicks Install in the window.
-   - **Homebrew missing**: the user installs it from https://brew.sh (it asks for their password).
-2. If PyTorch does not install: `LITE=1 ./setup.sh` (the person cut-out is then a little softer). Ask before the optional large
-   speech model (`WHISPER_MODEL=large-v3-turbo`, 1.6 GB); the default model is fine.
-3. Start: `./start.sh` (http://127.0.0.1:5190; it opens the browser). Keep it running. Port taken: `PORT=5191 ./start.sh`.
+1. Install: `curl -fsSL https://raw.githubusercontent.com/KallawayContent/visual-style-builder/main/install.sh | NO_START=1 zsh`
+   It downloads the code into `~/visual-style-builder` and runs `setup.sh` there (7 numbered steps, 5-15 minutes the first
+   time; PyTorch is about 1 GB). It needs no password and no user action. It needs internet access (allow network access if
+   your sandbox asks). If you are already inside a copy of this repository, run `./setup.sh` instead. Both are safe to run again.
+2. If PyTorch does not install: `LITE=1 ./setup.sh` (the person cut-out is then a little softer). Intel Macs get the lite
+   version by themselves.
+3. Start: `open ~/visual-style-builder/"Start Visual Style Builder.command"`. It opens a Terminal window that runs the site
+   (http://127.0.0.1:5190) and opens the browser. The site runs only while that window is open. Tell the user: next time,
+   double-click "Start Visual Style Builder" on the Desktop. (Or run `./start.sh` in a terminal that stays open.)
 
 ## B. Windows 10 / 11
 
-1. Run `powershell -NoProfile -ExecutionPolicy Bypass -File setup.ps1` from the repository folder (the user can also
-   double-click `setup.cmd`). 7 numbered steps, 10-20 minutes the first time (about 2 GB of Python libraries + the models).
+1. Install: `$env:NO_START=1; irm https://raw.githubusercontent.com/KallawayContent/visual-style-builder/main/install.ps1 | iex`
+   in PowerShell (no git needed; the code goes into `%USERPROFILE%\visual-style-builder`). Inside a copy of the repository:
+   `powershell -NoProfile -ExecutionPolicy Bypass -File setup.ps1` (the user can also double-click `setup.cmd`). 7 numbered steps, 10-20 minutes the first time (about 2 GB of Python libraries + the models).
    It installs Python 3.12, Node.js LTS and FFmpeg with winget when they are missing.
    - **winget missing**: the user installs "App Installer" from the Microsoft Store.
    - **"... is still not found" after an install**: a new PATH needs a new window. Open a new terminal and run the setup again.
@@ -80,12 +95,13 @@ Tell the user to test it:
 
 | What happens | What to do |
 |---|---|
-| "The link did not download" | Mac: `brew upgrade yt-dlp`. Windows: `.venv\Scripts\python.exe -m pip install -U yt-dlp`. Private videos and some rate limits cannot be downloaded: download the file and drop it instead. |
+| "The link did not download" | Mac: `.venv/bin/python -m pip install -U yt-dlp` (or `.tools/bin/uv pip install --python .venv/bin/python -U yt-dlp`). Windows: `.venv\Scripts\python.exe -m pip install -U yt-dlp`. Private videos and some rate limits cannot be downloaded: download the file and drop it instead. |
 | "Wait N s before the next link" | Normal: links download one at a time, 8 s apart, so the sites do not block them. |
 | The progress stops with "error prep" | Read `data/<id>/job.log` for the error. Mac: run `./setup.sh` again. Windows: run `.venv\Scripts\python.exe analyzer\prep.py <video> test` to see the full error. |
 | CERTIFICATE_VERIFY_FAILED on a download | `pip install -U certifi` in the .venv (the analyzer uses certifi's certificates). |
 | The page is blank | Run `cd app && npx tsc --noEmit -p .` and read the error; make sure the start script is still running. |
-| A Swift tool does not build (Mac) | `xcode-select --install` (or update Xcode), then `./setup.sh` again. |
+| "FFmpeg or an Apple Vision tool does not run" (Mac) | macOS 12 or newer is needed. Delete `.tools/` and run `./setup.sh` again. The tools come from the GitHub release `mac-tools-v1` of this repository (SHA-256 checked). |
+| Apple's "install command line tools" window opened (Mac) | Something ran `git`, `python3` or `xcode-select`. Close the window (Cancel) and use the installer line of section A instead. |
 
 ## Where things are
 

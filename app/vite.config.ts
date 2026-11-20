@@ -13,11 +13,15 @@ import { fileURLToPath } from "node:url";
 const SM = path.resolve(path.dirname(fileURLToPath(import.meta.url)), "..");
 const ENV: Record<string, string> = {};
 try { fs.readFileSync(path.join(SM, ".env"), "utf8").split(/\r?\n/).forEach((l) => { const m = l.match(/^(\w+)="?([^"]*)"?$/); if (m) ENV[m[1]] = m[2]; }); } catch {}
+// .tools/bin = the programs setup.sh downloads on a Mac with no Homebrew (ffmpeg, ffprobe, node): first on the PATH of every child
+const TOOLS = [path.join(SM, ".tools", "bin"), "/opt/homebrew/bin", "/usr/local/bin"];
+if (process.platform !== "win32") process.env.PATH = [...TOOLS, process.env.PATH || ""].join(path.delimiter);
 const PY = process.env.SM_PY || ENV.SM_PY || (process.platform === "win32" ? path.join(SM, ".venv", "Scripts", "python.exe") : path.join(SM, ".venv", "bin", "python"));
 // PORTABLE = not a Mac (Windows, Linux), or SM_PORTABLE=1 (the Windows path tested on a Mac): analyzer/prep.py + analyzer/portable.py
 // (EasyOCR, OpenCV, Robust Video Matting, faster-whisper) instead of prep.sh and the Apple Vision tools
 const PORTABLE = process.platform !== "darwin" || (process.env.SM_PORTABLE || ENV.SM_PORTABLE) === "1";
 const CHILD_ENV = { ...process.env, ...(ENV.SM_WHISPER ? { SM_WHISPER: ENV.SM_WHISPER } : {}), ...(PORTABLE ? { SM_PORTABLE: "1" } : {}), PYTHONIOENCODING: "utf-8", PYTHONUTF8: "1" };
+const HAS_YTDLP = process.platform !== "win32" && spawnSync("yt-dlp", ["--version"]).status === 0;
 const RVM = process.env.SM_RVM || ENV.SM_RVM || PY;
 
 // POST /api/analyze  (body = the video file, header x-filename)
@@ -242,14 +246,13 @@ function fetchApi() {
           const args = ["--no-playlist", "--no-warnings", "--max-filesize", "400M",
             "-f", "bv*[vcodec^=avc1][height<=1920]+ba[ext=m4a]/b[vcodec^=avc1]/bv*[ext=mp4][height<=1920]+ba[ext=m4a]/b[ext=mp4]/bv*+ba/b", "--merge-output-format", "mp4",
             "-o", out + ".%(ext)s", "--print", "after_move:%(filepath)s\t%(channel|uploader_id|uploader|)s\t%(title|id)s", url];
-          // a Mac: Homebrew's yt-dlp; portable: the yt-dlp of the Python environment (pip)
-          const p = PORTABLE ? spawn(PY, ["-m", "yt_dlp", ...args], { env: CHILD_ENV })
-            : spawn("yt-dlp", args, { env: { ...process.env, PATH: `/opt/homebrew/bin:/usr/local/bin:${process.env.PATH}` } });
+          // a yt-dlp program on the PATH (Homebrew) if there is one, else the yt-dlp of the Python environment (pip; setup installs it)
+          const p = !PORTABLE && HAS_YTDLP ? spawn("yt-dlp", args, { env: CHILD_ENV }) : spawn(PY, ["-m", "yt_dlp", ...args], { env: CHILD_ENV });
           let so = "", se = "";
           const timer = setTimeout(() => p.kill("SIGKILL"), 180000);
           p.stdout.on("data", (d: Buffer) => { so += d; });
           p.stderr.on("data", (d: Buffer) => { se += d; });
-          p.on("error", () => { se += "yt-dlp is not installed (brew install yt-dlp / pip install yt-dlp)"; });
+          p.on("error", () => { se += "yt-dlp is not installed (run the setup again)"; });
           p.on("close", (code) => {
             clearTimeout(timer); busy = false; last = Date.now();
             const line = so.trim().split("\n").filter(Boolean).pop() || "";

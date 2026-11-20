@@ -1,5 +1,7 @@
+# Mac (setup.sh installs these with uv; PyTorch is added unless LITE=1)
 numpy>=1.26
 opencv-python-headless>=4.9
 pillow>=10
 certifi
-# PyTorch (torch, torchvision) is installed by setup.sh unless LITE=1
+yt-dlp
+faster-whisper
