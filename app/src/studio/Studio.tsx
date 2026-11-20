@@ -177,8 +177,8 @@ export default function Studio() {
   const onFile = useCallback(async (file: File, handle = "") => {
     // a file analyzed before opens at once with the scan animation (no upload, no progress list)
     try {
-      const h = Array.from(new Uint8Array(await crypto.subtle.digest("SHA-1", await file.arrayBuffer()))).map((b) => b.toString(16).padStart(2, "0")).join("").slice(0, 16);
-      const j = await (await fetch(`/api/lookup?hash=${h}`)).json();
+      // the same bytes, or the same video in other bytes (another download of the same reel): /api/match
+      const j = await (await fetch("/api/match", { method: "POST", body: file })).json();
       if (j.id) { open(j.id); return; }
     } catch {}
     setStyle(null); setAnalysis(null); setScanStart(null); setVid(null);

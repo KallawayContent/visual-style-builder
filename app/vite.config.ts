@@ -42,6 +42,23 @@ function jobApi() {
         res.setHeader("Content-Type", "application/json");
         res.end(JSON.stringify(/^[0-9a-f]{16}$/.test(h) ? { id: byHash(h) } : {}));
       });
+      // POST /api/match (body = a dropped file): an analyzed video with the same bytes, or the same video in other bytes -> {id}
+      server.middlewares.use("/api/match", (req: any, res: any) => {
+        if (req.method !== "POST") { res.statusCode = 405; return res.end(); }
+        const chunks: Buffer[] = [];
+        req.on("data", (c: Buffer) => chunks.push(c));
+        req.on("end", () => {
+          res.setHeader("Content-Type", "application/json");
+          const buf = Buffer.concat(chunks);
+          let id = byHash(sha16(buf));
+          if (!id) {
+            const tmp = path.join(SM, "uploads", `match_${Date.now()}.mp4`);
+            try { fs.mkdirSync(path.dirname(tmp), { recursive: true }); fs.writeFileSync(tmp, buf); id = byContent(tmp); } catch {}
+            try { fs.unlinkSync(tmp); } catch {}
+          }
+          res.end(JSON.stringify({ id: id || null }));
+        });
+      });
       server.middlewares.use("/api/job", (req: any, res: any) => {
         const id = new URL(req.url, "http://x").searchParams.get("id") || "";
         res.setHeader("Content-Type", "application/json");
@@ -145,12 +162,13 @@ function durOf(file: string): number {
   return parseFloat(String(r.stdout || "")) || 0;
 }
 function byContent(file: string): string | null {
-  const d = Math.min(60, durOf(file)); if (!d) return null;
+  const full = durOf(file); if (!full) return null;
+  const d = Math.min(60, full);
   const dir = path.join(SM, "data"); const cands: { id: string; hidden: boolean; at: number }[] = [];
   for (const id of fs.readdirSync(dir)) {
     const st = path.join(dir, id, "style.json"); if (!fs.existsSync(st)) continue;
     let dur = 0; try { dur = JSON.parse(fs.readFileSync(st, "utf8")).duration; } catch {}
-    if (Math.abs(dur - d) > 0.25 || !fs.existsSync(path.join(dir, id, "w.mp4"))) continue;
+    if ((Math.abs(dur - d) > 0.25 && Math.abs(dur - full) > 0.25) || !fs.existsSync(path.join(dir, id, "w.mp4"))) continue;
     let meta: any = {}; try { meta = JSON.parse(fs.readFileSync(path.join(dir, id, "meta.json"), "utf8")); } catch {}
     cands.push({ id, hidden: !!meta.hidden, at: meta.uploaded || fs.statSync(st).mtimeMs });
   }
