@@ -14,24 +14,34 @@ splits into 7 layers in 3D, and every part of the style is measured from the rea
 Save the parts you like from many videos, combine them into your own styles (Style 1, Style 2 ...), and export a style guide:
 a 9:16 poster + one page per part (PNG), a Markdown guide to paste into ChatGPT, or JSON.
 
-Everything runs on your own computer. No account, no paid API, no upload to a server.
+Everything runs on your own computer (Mac or Windows). No account, no paid API, no upload to a server.
 
 ## Requirements
 
-- **macOS** (Apple Silicon recommended). The person cut-out and the text reading use Apple's Vision framework, so this
-  version does not run on Windows or Linux.
-- About 3 GB of free disk space (about 1.5 GB with `LITE=1`).
-- An internet connection for the setup.
+| | Mac | Windows 10 / 11 |
+|---|---|---|
+| Analyzer | Apple Vision (person cut-out, text, faces, cards) + Robust Video Matting + whisper.cpp | Free cross-platform tools: Robust Video Matting, EasyOCR, OpenCV, faster-whisper |
+| Install | `./setup.sh` (Homebrew) | `setup.cmd` (winget) |
+| Start | `./start.sh` | `start.cmd` |
+| Disk space | about 3 GB (`LITE=1`: 1.5 GB) | about 3 GB |
+| Speed (a 47 s video) | about 3 minutes | about 3-6 minutes (faster with an NVIDIA graphics card) |
+
+Both versions give the same 11 parts. The Mac version is the reference; the Windows version was checked against it on the same
+videos (same results on most parts; it names B-roll kinds less exactly, because Apple's image labels have no free equivalent).
+The Windows version was tested on a Mac in its portable mode, not yet on a Windows computer: if the setup stops, the AI agent
+can fix it with AGENT_SETUP.md. Linux works like Windows (portable mode) with your own package manager.
 
 ## Set it up with an AI agent (easiest)
 
-Open Codex (or any coding agent that can run commands on your Mac) in an empty folder and paste:
+Open Codex (or any coding agent that can run commands on your computer) in an empty folder and paste:
 
 ```
 Clone https://github.com/samuelcodinggod/visual-style-builder and follow its AGENT_SETUP.md to install it and open the site.
 ```
 
 ## Set it up by hand
+
+Mac:
 
 ```sh
 git clone https://github.com/samuelcodinggod/visual-style-builder.git
@@ -43,10 +53,13 @@ cd visual-style-builder
 Options: `LITE=1 ./setup.sh` skips PyTorch (smaller, softer person cut-out). `WHISPER_MODEL=large-v3-turbo ./setup.sh`
 downloads a larger speech model for more exact word timing.
 
+Windows: download the repository (Code > Download ZIP, or `git clone`), open the folder, double-click **setup.cmd**
+(10-20 minutes the first time), then double-click **start.cmd** (it opens http://127.0.0.1:5190; keep its window open).
+
 ## How it works
 
-1. `analyzer/prep.sh`: scales the video to 540x960 at 30 fps, reads the on-screen text (Apple Vision), cuts out the person
-   (Apple Vision), and transcribes the words with timings (whisper.cpp).
+1. `analyzer/prep.sh` (Mac) / `analyzer/prep.py` (Windows): scales the video to 540x960 at 30 fps, reads the on-screen text (Apple Vision), cuts out the person
+   (Apple Vision; on Windows `analyzer/portable.py`), and transcribes the words with timings (whisper.cpp / faster-whisper).
 2. `analyzer/matte_rvm.py`: a sharper person cut-out with Robust Video Matting (skipped in the lite setup).
 3. `analyzer/analyze.py`: cuts, layout over time, B-roll (pictures and clips over or around the speaker), captions, the palette,
    and one packed 3 x 2 video that holds every layer in sync.

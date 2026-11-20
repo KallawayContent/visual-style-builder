@@ -25,8 +25,13 @@ OUT = f"{D}/mattes_new" if FIRST else f"{D}/mattes"
 os.makedirs(OUT, exist_ok=True)
 vis_files = sorted(f for f in os.listdir(VIS) if f.endswith(".png"))
 
-os.environ.setdefault("SSL_CERT_FILE", "/etc/ssl/cert.pem")
-dev = "mps" if torch.backends.mps.is_available() else "cpu"
+if sys.platform == "darwin" and os.path.exists("/etc/ssl/cert.pem"):
+    os.environ.setdefault("SSL_CERT_FILE", "/etc/ssl/cert.pem")
+try:
+    import certifi; os.environ.setdefault("SSL_CERT_FILE", certifi.where())
+except Exception:
+    pass
+dev = "cuda" if torch.cuda.is_available() else ("mps" if torch.backends.mps.is_available() else "cpu")
 model = torch.hub.load("PeterL1n/RobustVideoMatting", "resnet50", trust_repo=True, skip_validation=True).eval().to(dev)
 
 ff = subprocess.Popen(["ffmpeg", "-v", "error", "-i", f"{D}/w.mp4", "-f", "rawvideo", "-pix_fmt", "rgb24", "-"],

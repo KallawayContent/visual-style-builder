@@ -1,0 +1,7 @@
+# Windows / Linux (portable mode): the free replacements of the Apple tools (analyzer/portable.py)
+-r requirements.txt
+torch
+torchvision
+easyocr
+faster-whisper
+yt-dlp

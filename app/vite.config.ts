@@ -12,8 +12,12 @@ import { fileURLToPath } from "node:url";
 // writes it) or the SM_PY / SM_RVM environment variables; the default is ../.venv (setup.sh makes it).
 const SM = path.resolve(path.dirname(fileURLToPath(import.meta.url)), "..");
 const ENV: Record<string, string> = {};
-try { fs.readFileSync(path.join(SM, ".env"), "utf8").split("\n").forEach((l) => { const m = l.match(/^(\w+)="?([^"]*)"?$/); if (m) ENV[m[1]] = m[2]; }); } catch {}
-const PY = process.env.SM_PY || ENV.SM_PY || path.join(SM, ".venv", "bin", "python");
+try { fs.readFileSync(path.join(SM, ".env"), "utf8").split(/\r?\n/).forEach((l) => { const m = l.match(/^(\w+)="?([^"]*)"?$/); if (m) ENV[m[1]] = m[2]; }); } catch {}
+const PY = process.env.SM_PY || ENV.SM_PY || (process.platform === "win32" ? path.join(SM, ".venv", "Scripts", "python.exe") : path.join(SM, ".venv", "bin", "python"));
+// PORTABLE = not a Mac (Windows, Linux), or SM_PORTABLE=1 (the Windows path tested on a Mac): analyzer/prep.py + analyzer/portable.py
+// (EasyOCR, OpenCV, Robust Video Matting, faster-whisper) instead of prep.sh and the Apple Vision tools
+const PORTABLE = process.platform !== "darwin" || (process.env.SM_PORTABLE || ENV.SM_PORTABLE) === "1";
+const CHILD_ENV = { ...process.env, ...(ENV.SM_WHISPER ? { SM_WHISPER: ENV.SM_WHISPER } : {}), ...(PORTABLE ? { SM_PORTABLE: "1" } : {}), PYTHONIOENCODING: "utf-8", PYTHONUTF8: "1" };
 const RVM = process.env.SM_RVM || ENV.SM_RVM || PY;
 
 // POST /api/analyze  (body = the video file, header x-filename)
@@ -73,7 +77,7 @@ function analyzeApi() {
             const cid = idx[hash];
             say(`cached ${cid}`);
             if (!fs.existsSync(path.join(SM, "data", cid, "style.json"))) {
-              const p = spawn(PY, [path.join(SM, "analyzer", "style_deep.py"), cid]);
+              const p = spawn(PY, [path.join(SM, "analyzer", "style_deep.py"), cid], { env: CHILD_ENV });
               p.stdout.on("data", (d: Buffer) => d.toString().split("\n").filter(Boolean).forEach(say));
               p.on("close", () => { say(`done ${cid}`); res.end(); });
               return;
@@ -94,16 +98,21 @@ function analyzeApi() {
           fs.writeFileSync(path.join(SM, "data", id, "meta.json"), JSON.stringify({ name: name.replace(/\.[^.]+$/, ""), ...(handle ? { handle } : {}), uploaded: Date.now() }));
           say(`saved ${name} ${(buf.length / 1e6).toFixed(1)} MB`);
           const run = (cmd: string, args: string[]) => new Promise<number>((ok) => {
-            const p = spawn(cmd, args);
+            const p = spawn(cmd, args, { env: CHILD_ENV });
             const pipe = (d: Buffer) => d.toString().split("\n").filter(Boolean).forEach(say);
             p.stdout.on("data", pipe); p.stderr.on("data", pipe);
             p.on("close", (code) => ok(code ?? 1));
           });
           (async () => {
             say("step prep");
-            if (await run("zsh", [path.join(SM, "analyzer", "prep.sh"), src, id])) { say("error prep"); return res.end(); }
-            say("step matte");   // the sharper person matte (Robust Video Matting); on a failure Vision's matte stays
-            await run(RVM, [path.join(SM, "analyzer", "matte_rvm.py"), id]);
+            if (PORTABLE) {   // the person matte of prep.py is already Robust Video Matting: no second matte step
+              if (await run(PY, [path.join(SM, "analyzer", "prep.py"), src, id])) { say("error prep"); return res.end(); }
+              say("step matte");
+            } else {
+              if (await run("zsh", [path.join(SM, "analyzer", "prep.sh"), src, id])) { say("error prep"); return res.end(); }
+              say("step matte");   // the sharper person matte (Robust Video Matting); on a failure Vision's matte stays
+              await run(RVM, [path.join(SM, "analyzer", "matte_rvm.py"), id]);
+            }
             if (await run(PY, [path.join(SM, "analyzer", "analyze.py"), id])) { say("error analyze"); return res.end(); }
             await run(PY, [path.join(SM, "analyzer", "repalette.py"), id]);
             say("step set");
@@ -204,7 +213,9 @@ function fetchApi() {
           const args = ["--no-playlist", "--no-warnings", "--max-filesize", "400M",
             "-f", "bv*[vcodec^=avc1][height<=1920]+ba[ext=m4a]/b[vcodec^=avc1]/bv*[ext=mp4][height<=1920]+ba[ext=m4a]/b[ext=mp4]/bv*+ba/b", "--merge-output-format", "mp4",
             "-o", out + ".%(ext)s", "--print", "after_move:%(filepath)s\t%(channel|uploader_id|uploader|)s\t%(title|id)s", url];
-          const p = spawn("yt-dlp", args, { env: { ...process.env, PATH: `/opt/homebrew/bin:/usr/local/bin:${process.env.PATH}` } });
+          // a Mac: Homebrew's yt-dlp; portable: the yt-dlp of the Python environment (pip)
+          const p = PORTABLE ? spawn(PY, ["-m", "yt_dlp", ...args], { env: CHILD_ENV })
+            : spawn("yt-dlp", args, { env: { ...process.env, PATH: `/opt/homebrew/bin:/usr/local/bin:${process.env.PATH}` } });
           let so = "", se = "";
           const timer = setTimeout(() => p.kill("SIGKILL"), 180000);
           p.stdout.on("data", (d: Buffer) => { so += d; });

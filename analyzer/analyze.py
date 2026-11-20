@@ -209,6 +209,9 @@ def grad(g):
 # 1. Apple Vision's rectangle detector (analyzer/rects) on every 3rd frame; 2. each found card is followed forward and backward while
 #    the picture inside its box stays the same (fills the frames Vision misses, gives the exact start and end); 3. boxes on the face go.
 import tempfile
+_AN = os.path.dirname(os.path.abspath(__file__))
+# not a Mac (or SM_PORTABLE=1): OpenCV's rectangles (analyzer/portable.py) instead of Apple Vision's (analyzer/rects)
+RECTS = [sys.executable, os.path.join(_AN, "portable.py"), "rects"] if (os.environ.get("SM_PORTABLE") == "1" or sys.platform != "darwin") else [os.path.join(_AN, "rects")]
 STEP = 3
 tmpd = tempfile.mkdtemp(prefix="sm_rects_")
 paths = []
@@ -216,7 +219,7 @@ for i in range(0, N, STEP):
     pth = f"{tmpd}/r_{i:05d}.jpg"; cv2.imwrite(pth, cv2.resize(frames[i], (270, 480)), [cv2.IMWRITE_JPEG_QUALITY, 88]); paths.append(pth)
 found = {}
 for k in range(0, len(paths), 200):
-    out = subprocess.run([f"{os.path.dirname(os.path.abspath(__file__))}/rects", *paths[k:k + 200]], capture_output=True, text=True).stdout
+    out = subprocess.run([*RECTS, *paths[k:k + 200]], capture_output=True, text=True).stdout
     for line in out.splitlines():
         try:
             r = json.loads(line)

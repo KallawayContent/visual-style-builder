@@ -15,7 +15,8 @@ ID = sys.argv[1]
 D = f"{SM}/data/{ID}"
 P = f"{D}/parts"
 os.makedirs(P, exist_ok=True)
-VT = f"{SM}/analyzer/visiontags"
+# not a Mac (or SM_PORTABLE=1): faces from OpenCV (analyzer/portable.py visiontags) instead of Apple Vision (analyzer/visiontags)
+VT = [sys.executable, f"{SM}/analyzer/portable.py", "visiontags"] if (os.environ.get("SM_PORTABLE") == "1" or sys.platform != "darwin") else [f"{SM}/analyzer/visiontags"]
 W, H, FPS = 540, 960, 30
 
 
@@ -119,10 +120,10 @@ def kmeans_cols(px, k):
 
 def vision(paths):
     out = {}
-    if not paths or not os.path.exists(VT):
+    if not paths or not os.path.exists(VT[-1] if len(VT) == 1 else VT[1]):
         return out
     for j in range(0, len(paths), 40):
-        r = subprocess.run([VT, *paths[j:j + 40]], capture_output=True, text=True)
+        r = subprocess.run([*VT, *paths[j:j + 40]], capture_output=True, text=True)
         for line in r.stdout.splitlines():
             try:
                 o = json.loads(line); out[o["file"]] = o
