@@ -258,3 +258,49 @@ body { color: var(--ink); font-family: var(--sans); -webkit-font-smoothing: anti
 .hk-bg3 .wall { position: absolute; left: -40px; top: -60px; display: grid; grid-template-columns: repeat(12, 200px); gap: 14px; filter: blur(3px) brightness(0.33) saturate(1.2); }
 .hk-bg3 .wall img { width: 200px; height: 356px; object-fit: cover; border-radius: 10px; }
 .hk-bg4 { position: absolute; inset: 0; background: radial-gradient(ellipse 60% 70% at 50% 45%, #1c1820 0%, #0b0a0e 55%, #050507 100%); }
+/* hook v8 (2026-11-24): the solo layers + the end */
+.h8-num { position: absolute; top: 540px; transform-origin: right center; z-index: 7; font-family: var(--mono); font-weight: 700; font-size: 150px; letter-spacing: -4px; line-height: 1; margin-top: -75px; text-shadow: 0 4px 30px rgba(0,0,0,0.6); }
+.h8-side { position: absolute; top: 540px; width: 520px; margin-top: -70px; z-index: 7; }
+.h8-name { font-family: var(--mono); font-weight: 700; font-size: 54px; letter-spacing: 4px; line-height: 1; }
+.h8-what { font-family: var(--serif); font-size: 46px; line-height: 1.05; color: var(--ink); margin-top: 16px; }
+.h8-dots { position: absolute; top: 400px; display: flex; gap: 10px; z-index: 7; }
+.h8-dots i { width: 34px; height: 6px; border-radius: 3px; }
+.h8-count { position: absolute; top: 540px; margin-top: -95px; z-index: 7; font-family: var(--mono); font-weight: 700; font-size: 190px; letter-spacing: -8px; line-height: 1; transform-origin: right center; font-variant-numeric: tabular-nums; }
+.h8-count span { font-size: 110px; letter-spacing: 0; margin-left: 6px; opacity: 0.8; }
+.h8-end { position: absolute; top: 540px; margin-top: -120px; z-index: 7; font-family: var(--serif); font-size: 128px; line-height: 0.95; color: var(--ink); letter-spacing: -2px; }
+.h8-end .mask { overflow: hidden; padding-bottom: 8px; }
+.h8-end .mask > div { will-change: transform; }
+.h8-end i { opacity: 0.8; }
+/* hook v9 (2026-11-24): the right column */
+.h9-col { position: absolute; top: 540px; transform: translateY(-50%); width: 760px; z-index: 7; display: flex; flex-direction: column; gap: 26px; }
+.h9-head { display: flex; align-items: baseline; gap: 22px; }
+.h9-n { font-family: var(--mono); font-weight: 700; font-size: 120px; letter-spacing: -4px; line-height: 1; }
+.h9-name { font-family: var(--mono); font-weight: 700; font-size: 60px; letter-spacing: 4px; line-height: 1; }
+.h9-what { font-family: var(--serif); font-size: 54px; line-height: 1.05; color: var(--ink); margin-top: 18px; max-width: 720px; }
+.h9-barlab { display: flex; align-items: baseline; justify-content: space-between; width: 680px; font-family: var(--mono); font-weight: 700; font-size: 26px; letter-spacing: 4px; color: #cfc9bf; }
+.h9-barlab b { font-size: 84px; letter-spacing: -3px; font-variant-numeric: tabular-nums; }
+.h9-bar { width: 680px; height: 18px; border-radius: 9px; background: rgba(255, 255, 255, 0.1); overflow: hidden; box-shadow: inset 0 0 0 1px rgba(255, 255, 255, 0.08); }
+.h9-bar i { display: block; height: 100%; border-radius: 9px; box-shadow: 0 0 24px rgba(177, 140, 255, 0.5); }
+.h9-end { font-family: var(--serif); font-size: 128px; line-height: 0.95; color: var(--ink); letter-spacing: -2px; margin-top: 10px; }
+.h9-end .mask { overflow: hidden; padding-bottom: 8px; }
+.h9-end i { opacity: 0.8; }
+/* hook v10: "Style extracted." in Bricolage Grotesque */
+.h10-end { font-family: "Bricolage Grotesque", sans-serif; font-weight: 800; font-size: 124px; line-height: 0.92; letter-spacing: -0.045em; color: #f3eee6; margin-top: 14px; }
+.h10-end .mask { overflow: hidden; padding-bottom: 10px; }
+.h10-end .grad { background-size: 100% 100%; -webkit-background-clip: text; background-clip: text; color: transparent; display: inline-block; }
+/* hook v11: "Style extracted." white, Inter Tight semibold */
+.h11-end { font-family: "Inter Tight", sans-serif; font-weight: 600; font-size: 116px; line-height: 0.98; letter-spacing: -0.04em; color: #f3eee6; margin-top: 14px; }
+.h11-end .mask { overflow: hidden; padding-bottom: 8px; }
+/* hook v12: the 4:3 and 9:16 sizes */
+.stage.f43 .h9-col { width: 640px; }
+.stage.f43 .h9-what { font-size: 48px; max-width: 620px; }
+.stage.f43 .h9-bar, .stage.f43 .h9-barlab { width: 600px; }
+.stage.f43 .h11-end { font-size: 104px; }
+.stage.f916 .h9-col { gap: 30px; }
+.stage.f916 .h9-what { font-size: 58px; max-width: 880px; }
+.stage.f916 .h9-bar, .stage.f916 .h9-barlab { width: 880px; }
+.stage.f916 .h9-bar { height: 22px; }
+.stage.f916 .h11-end { font-size: 150px; }
+/* hook v13 9:16: "Style extracted" in place of the bar */
+.h13-end { gap: 0; font-family: "Inter Tight", sans-serif; font-weight: 600; font-size: 168px; line-height: 0.96; letter-spacing: -0.045em; color: #f3eee6; }
+.h13-end .mask { overflow: hidden; padding-bottom: 10px; }

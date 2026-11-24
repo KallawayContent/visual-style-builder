@@ -275,10 +275,26 @@ function fetchApi() {
 }
 
 // GET /api/videos: every analyzed video that has a style.json
+// POST /api/guide-file?dir=NAME&file=FILE (body = the file): "Send to Codex" saves the style guide into style-guides/NAME/ in this folder
+//. Answers {"path": "<absolute folder>"}.
 function videosApi() {
   return {
     name: "videos-api",
     configureServer(server: any) {
+      server.middlewares.use("/api/guide-file", (req: any, res: any) => {
+        const q = new URL(req.url, "http://x").searchParams;
+        const dir = String(q.get("dir") || ""), file = String(q.get("file") || "");
+        if (req.method !== "POST" || !/^[\w.-]+$/.test(dir) || !/^[\w.-]+\.(png|md|json)$/.test(file)) { res.statusCode = 400; return res.end("{}"); }
+        const chunks: Buffer[] = [];
+        req.on("data", (c: Buffer) => chunks.push(c));
+        req.on("end", () => {
+          const out = path.join(SM, "style-guides", dir);
+          fs.mkdirSync(out, { recursive: true });
+          fs.writeFileSync(path.join(out, file), Buffer.concat(chunks));
+          res.setHeader("Content-Type", "application/json");
+          res.end(JSON.stringify({ path: out }));
+        });
+      });
       server.middlewares.use("/api/videos", (_req: any, res: any) => {
         const dir = path.join(SM, "data");
         const out: any[] = [];

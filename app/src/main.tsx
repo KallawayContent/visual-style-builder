@@ -40,6 +40,7 @@ import "@fontsource/space-grotesk/600.css";
 import "@fontsource/space-grotesk/700.css";
 import "./styles.css";
 import "@fontsource/bricolage-grotesque/700.css";
+import "@fontsource/bricolage-grotesque/800.css";
 import "@fontsource/bricolage-grotesque/500.css";
 import Studio from "./studio/Studio";
 const q = new URLSearchParams(location.search);

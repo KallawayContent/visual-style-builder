@@ -475,7 +475,15 @@ function Overlay(p: OP) {
           {viewer && <Combine lib={p.lib} pick={p.pick} setPick={p.setPick} variant={p.variant} setVariant={p.setVariant} back={() => p.setTab("layers")} heroTime={heroTime} Marks={ScanMarks} />}
           {!viewer && <div className="lv-head">
             <div className="sm-eyebrow">STYLE STACK · {n} COMPONENTS</div>
-            <div className="lv-name">{p.vinfo?.name || style.id}</div>
+            {(() => {
+              const name = p.vinfo?.name || style.id, h = (p.vinfo?.handle || "").replace(/^@/, "");
+              let title = name;
+              if (h) title = title.replace(new RegExp(`^(video by\\s+)?${h.replace(/[.*+?^${}()|[\]\\]/g, "\\$&")}\\b[\\s:·-]*`, "i"), "").trim();
+              return <>
+                <div className="lv-name">{h || name}</div>
+                {h && title && <div className="lv-title">{title}</div>}
+              </>;
+            })()}
             {p.vinfo?.handle && <div className="lv-handle">{p.vinfo.handle}</div>}
           </div>}
           {!viewer && <Panel {...p} />}
@@ -633,15 +641,28 @@ function LayersTab(p: OP) {
     <div className="pn-body">
       <button className="pn-back" onClick={() => p.setPin(null)}><i>←</i>All layers</button>
       <div className="pn-head"><span style={{ color: L.color }}>{String(idx).padStart(2, "0")}</span>{L.name.toUpperCase()}</div>
-      <button className={"pn-book" + (all ? " on" : "")} style={{ ["--c" as any]: L.color }} onClick={() => p.saveLayer(L.id)}>
-        <i>{all ? "✓" : "+"}</i>{all ? <><span className="pn-sv">Saved</span><span className="pn-us">Unsave</span></> : `Save ${L.name.toLowerCase()}`}
-      </button>
+      {L.comps.length === 1 ? (
+        <button className={"pn-book" + (all ? " on" : "")} style={{ ["--c" as any]: L.color }} onClick={() => p.saveLayer(L.id)}>
+          <i>{all ? "✓" : "+"}</i>{all ? <><span className="pn-sv">Saved</span><span className="pn-us">Unsave</span></> : `Save ${L.name.toLowerCase()} style`}
+        </button>
+      ) : (
+        <div className="pn-books">
+          {L.comps.map((k) => {
+            const on = p.isSaved(k);
+            return (
+              <button key={k} className={"pn-book" + (on ? " on" : "")} style={{ ["--c" as any]: L.color }} onClick={() => p.toggleSave(k)}>
+                <i>{on ? "✓" : "+"}</i>{on ? <><span className="pn-sv">Saved {COMP_SHORT[k].toLowerCase()}</span><span className="pn-us">Unsave</span></> : `Save ${COMP_SHORT[k].toLowerCase()} style`}
+              </button>
+            );
+          })}
+        </div>
+      )}
       {L.comps.map((k) => {
         const c = style.components[k];
         return (
           <div key={k} className="pn-comp">
             <div className="pn-ct"><span>{c.title}</span>
-              {L.comps.length > 1 && <button className={"pn-mini" + (p.isSaved(k) ? " on" : "")} onClick={() => p.toggleSave(k)} title="Save only this part">{p.isSaved(k) ? "✓" : "+"}</button>}</div>
+</div>
             <div className="pn-h">{c.headline}</div>
             <Viz c={c} vid={style.id} />
             <div className="pn-specs">{c.specs.slice(0, L.comps.length > 1 ? 2 : 4).map(([a, b]) => <div key={a}><span>{a}</span><b>{b}</b></div>)}</div>

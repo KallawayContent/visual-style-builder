@@ -17,6 +17,8 @@ export const SAVE_VARIANTS: { id: SaveVariant; letter: string; name: string }[] 
 const img = (s: Saved, f: string) => `/data/${s.vid}/${f}`;
 const who = (s: Saved) => s.handle || s.source;
 
+const WIN = typeof navigator !== "undefined" && /Win/i.test((navigator as any).userAgentData?.platform || navigator.platform || navigator.userAgent);
+
 // ---------------------------------------------------------------- one picture for a saved part
 export function Glyph({ s }: { s: Saved }) {
   const c = s.comp, d = c.data || {};
@@ -34,9 +36,8 @@ export function Glyph({ s }: { s: Saved }) {
     }
     case "person": return d.crops?.[0] ? <div className="gl"><img src={img(s, d.crops[0])} /></div> : <div className="gl gl-none" />;
     case "broll": {
-      const it: any[] = d.items || []; const step = Math.max(1, Math.floor(it.length / 4));
-      const four = it.filter((_, i) => i % step === 0).slice(0, 4);
-      return four.length ? <div className="gl gl-4">{four.map((x) => <img key={x.file} src={img(s, x.file)} />)}</div> : <div className="gl gl-none">no B-roll</div>;
+      const four = brollFour(s);
+      return four.length ? <div className="gl gl-4">{four.map((u) => <img key={u} src={u} />)}</div> : <div className="gl gl-none">no B-roll</div>;
     }
     case "broll_framing": {
       const r = d.rect || [0, 0, 1, 0.5];
@@ -52,7 +53,7 @@ export function Glyph({ s }: { s: Saved }) {
       </div>);
     }
     case "subtitles": case "typography": {
-      const f = c.key === "typography" ? (d.crops || []).find((x: any) => x.file.includes("title_")) || d.crops?.[0] : d.crops?.[0];
+      const f = (d.crops || []).find((x: any) => x.file.includes("cap_")) || d.crops?.[0];
       return f ? <div className="gl gl-txt"><img src={img(s, f.file)} /></div> : <div className="gl gl-none">no text</div>;
     }
     case "textcolor": {
@@ -71,13 +72,22 @@ export function Glyph({ s }: { s: Saved }) {
 }
 
 // a B-roll picture: real footage first (a white UI screen reads badly on a dark poster)
-function brollPick(s: Saved): string | null {
-  const it: any[] = s.comp.data?.items || [];
-  if (!it.length) return null;
-  const f = it.filter((x) => x.kind === "footage"), o = it.filter((x) => !/screen|ui/i.test(x.kind || ""));
-  const L = f.length ? f : o.length ? o : it;
-  return img(s, L[Math.floor(L.length / 2)].file);
+function brollGood(s: Saved): any[] {
+  const it: any[] = (s.comp.data?.items || []).filter((x: any) => !/broll_in_/.test(x.file) && !/graphic|text card/i.test(x.kind || ""));
+  const f = it.filter((x) => x.kind === "footage" || x.kind === "people"), o = it.filter((x) => !/screen|ui/i.test(x.kind || ""));
+  return f.length ? f : o.length ? o : it;
 }
+function brollPick(s: Saved): string | null {
+  const L = brollGood(s);
+  return L.length ? img(s, L[Math.floor(L.length / 2)].file) : null;
+}
+// four B-roll pictures spread over the video (for a slide)
+function brollFour(s: Saved): string[] {
+  const L = brollGood(s); if (!L.length) return [];
+  const n = Math.min(4, L.length);
+  return Array.from({ length: n }, (_, i) => img(s, L[Math.floor(((i + 0.5) * L.length) / n)].file));
+}
+const hideBad = (e: any) => { (e.currentTarget as HTMLImageElement).style.visibility = "hidden"; };
 
 // the biggest real picture of a part (for big cards and slides), or null
 function heroImg(s: Saved): string | null {
@@ -92,29 +102,66 @@ function heroImg(s: Saved): string | null {
 function Phone({ pick, w }: { pick: Pick; w: number }) {
   const lay = pick.layout?.comp.data, br = pick.broll, pe = pick.person, sub = pick.subtitles, gr = pick.grade?.comp.data, st = pick.set;
   const seam = lay?.main === "split" ? lay.seam ?? 0.5 : lay?.main === "b_full" ? 1 : lay ? 0 : 0.5;
-  const brImg = br ? brollPick(br) : null;
-  const peImg = pe?.comp.data.crops?.[0] ? img(pe, pe.comp.data.crops[0]) : st?.comp.data.image ? img(st, st.comp.data.image) : null;
+  const lv = pick.layout || Object.values(pick).find(Boolean);   // no layout picked: the frames of the first picked video
+  const brImg = br ? brollPick(br) : lv ? img(lv, "parts/broll_000.jpg") : null;
+  const peImg = pe?.comp.data.crops?.[0] ? img(pe, pe.comp.data.crops[0]) : st?.comp.data.image ? img(st, st.comp.data.image) : lv ? img(lv, "parts/aroll_000.jpg") : null;
   const subF = sub?.comp.data.crops?.[0];
   const g = gr?.aroll || gr?.broll;
   return (
     <div className="ph" style={{ width: w, height: (w * 16) / 9, borderRadius: w * 0.08 }}>
-      {seam > 0 && <div className="ph-top" style={{ height: `${seam * 100}%` }}>{brImg ? <img src={brImg} /> : <span>B-ROLL</span>}</div>}
-      {seam < 1 && <div className="ph-bot" style={{ top: `${seam * 100}%` }}>{peImg ? <img src={peImg} /> : <span>SPEAKER</span>}</div>}
+      {seam > 0 && <div className="ph-top" style={{ height: `${seam * 100}%` }}>{brImg ? <img src={brImg} onError={hideBad} /> : <span>B-ROLL</span>}</div>}
+      {seam < 1 && <div className="ph-bot" style={{ top: `${seam * 100}%` }}>{peImg ? <img src={peImg} onError={hideBad} /> : <span>SPEAKER</span>}</div>}
       {g && <div className="ph-tint" style={{ background: `linear-gradient(${g.highlights}, ${g.mids} 50%, ${g.shadows})` }} />}
       {subF && <img className="ph-sub" src={img(sub!, subF.file)} style={{ top: `${(sub!.comp.data.y ?? 0.5) * 100}%`, maxHeight: w * 0.09 }} />}
     </div>
   );
 }
 
-// ---------------------------------------------------------------- the poster (1080 x 1920): the export, and its preview
 export function Poster({ name, pick, onPart, active }: { name: string; pick: Pick; onPart?: (k: CompKey) => void; active?: CompKey | null }) {
   const keys = COMP_ORDER.filter((k) => pick[k]);
   const srcs = [...new Map(keys.map((k) => [pick[k]!.vid, pick[k]!])).values()];
-  const gr = pick.grade?.comp.data, tc = pick.textcolor?.comp.data, ty = pick.typography;
-  const tyF = ty ? (ty.comp.data.crops || []).find((x: any) => x.file.includes("title_")) || ty.comp.data.crops?.[0] : null;
-  const pace = pick.pace?.comp.data;
   const hit = (k: CompKey) => onPart ? { onClick: () => onPart(k), className: "po-hit" + (active === k ? " on" : "") } : {};
-  const grid = keys.filter((k) => !["grade", "textcolor"].includes(k));
+  let tiles: { id: string; span: number; el: any }[] = keys.map((k) => {
+    const sv = pick[k]!, wide = k === "grade" || k === "broll";
+    return { id: k, span: wide ? 2 : 1, el: (
+      <div {...hit(k)} className={"bt bt-part" + (onPart ? " po-hit" + (active === k ? " on" : "") : "")} style={{ ["--c" as any]: compColor(k) }}>
+        <div className="bt-vis"><TileVis s={sv} wide={wide} /></div>
+        <div className="po-ct"><i />{COMP_SHORT[k]}</div>
+        <div className="bt-h">{sv.comp.headline}</div>
+      </div>) };
+  });
+  // the fillers: real frames of the picked videos, then their key numbers, one of each in turn
+  const used = new Set<string>();
+  const pics: { id: string; src: string; label: string }[] = [];
+  const addPic = (src: string | null | undefined, label: string) => { if (src && !used.has(src)) { used.add(src); pics.push({ id: src, src, label }); } };
+  keys.forEach((k) => { const sv = pick[k]!, d = sv.comp.data || {};
+    if (k === "broll") brollGood(sv).slice(0, 12).forEach((x, i) => { if (i % 3 === 1) addPic(img(sv, x.file), "B-roll"); });
+    if (k === "person") (d.crops || []).slice(1, 4).forEach((f: string) => addPic(img(sv, f), "Speaker"));
+    if (k === "set" && d.image) addPic(img(sv, d.image), "Set");
+  });
+  srcs.forEach((sv) => { if (sv.thumb) addPic(img(sv, sv.thumb), who(sv)); });
+  const stats: { id: string; big: string; small: string; c: string }[] = [];
+  const nStat = keys.length <= 2 ? 6 : 2;
+  keys.forEach((k) => pick[k]!.comp.specs.filter(([, v]) => /\d/.test(v) && v.length <= 8).slice(0, nStat)
+    .forEach(([a, v]) => stats.push({ id: k + a, big: v, small: a, c: compColor(k) })));
+  const shown = new Set(keys.map((k) => k === "broll" ? brollFour(pick[k]!) : []).flat());
+  const freePics = pics.filter((x) => !shown.has(x.src));
+  // rows: 4 when there is enough to show; fewer (bigger tiles) for a style of one or two parts, so no cell stays empty
+  const units = tiles.reduce((n, t) => n + t.span, 0);
+  let rows = Math.max(2, Math.min(3, Math.floor((units + freePics.length + stats.length) / 3))), cells = rows * 3;
+  if (units > cells) tiles = tiles.map((t) => ({ ...t, span: 1 }));
+  while (tiles.length > cells) { rows++; cells = rows * 3; }
+  let fill = cells - tiles.reduce((n, t) => n + t.span, 0), pi = 0, si = 0;
+  while (fill > 0 && (pi < freePics.length || si < stats.length)) {
+    const usePic = (tiles.length % 2 === 0 && pi < freePics.length) || si >= stats.length;
+    if (usePic) { const x = freePics[pi++]; tiles.push({ id: x.id, span: 1, el: <div className="bt bt-pic"><img src={x.src} onError={hideBad} /><span>{x.label}</span></div> }); }
+    else { const x = stats[si++]; tiles.push({ id: x.id, span: 1, el: <div className="bt bt-stat" style={{ ["--c" as any]: x.c }}><b>{x.big}</b><span>{x.small}</span></div> }); }
+    fill--;
+  }
+  // still short: widen part tiles
+  for (const t of tiles) { if (fill <= 0) break; if (t.span === 1 && keys.includes(t.id as CompKey)) { t.span = 2; fill--; } }
+  const area = 1080 - 52 - 44 - 196 - 34 - 40;   // the height of the grid: the page minus the padding, the header and the foot
+  const phoneW = Math.round((area * 9) / 16) - 24;
   return (
     <div className="po">
       <div className="po-glow" />
@@ -122,69 +169,93 @@ export function Poster({ name, pick, onPart, active }: { name: string; pick: Pic
       <div className="po-title">{name}</div>
       <div className="po-from">
         <span>Built from</span>
-        {srcs.map((s) => <b key={s.vid}>{s.thumb && <img src={img(s, s.thumb)} />}{who(s)}</b>)}
+        {srcs.map((sv) => <b key={sv.vid}>{sv.thumb && <img src={img(sv, sv.thumb)} />}{who(sv)}</b>)}
       </div>
-      <div className="po-hero">
-        <div {...hit("layout")}><Phone pick={pick} w={360} /></div>
-        <div className="po-side">
-          {gr?.palette && (
-            <div {...hit("grade")}><div className="po-lab">COLOR GRADE</div>
-              <div className="po-pal">{gr.palette.slice(0, 6).map((x: any) => <i key={x.hex} style={{ background: x.hex }}><span>{x.hex}</span></i>)}</div>
-              <div className="po-small">{pick.grade!.comp.headline}</div></div>
-          )}
-          {(tc?.main || tyF) && (
-            <div {...hit(tc?.main ? "textcolor" : "typography")}><div className="po-lab">TYPE</div>
-              <div className="po-type">
-                {tc?.main && <div className="po-aa"><span style={{ color: tc.main.hex }}>Aa</span>{tc.highlight && <span style={{ color: tc.highlight.hex }}>Aa</span>}</div>}
-                {tyF && <img src={img(ty!, tyF.file)} />}
-              </div></div>
-          )}
-          {pace && (
-            <div {...hit("pace")}><div className="po-lab">PACE</div>
-              <div className="po-num">{pick.pace!.comp.specs.find(([a]) => /median|shot/i.test(a))?.[1] || pick.pace!.comp.headline}</div></div>
-          )}
-        </div>
-      </div>
-      <div className={"po-grid n" + Math.min(4, Math.ceil(grid.length / 3))}>
-        {grid.map((k) => {
-          const s = pick[k]!;
-          return (
-            <div key={k} {...hit(k)}>
-              <div className="po-card" style={{ ["--c" as any]: compColor(k) }}>
-                <Glyph s={s} />
-                <div className="po-ct"><i />{COMP_SHORT[k]}</div>
-                <div className="po-ch">{s.comp.headline}</div>
-                <div className="po-cw">{s.thumb && <img src={img(s, s.thumb)} />}{who(s)}</div>
-              </div>
-            </div>
-          );
-        })}
+      <div className="po-bento" style={{ gridTemplateRows: `repeat(${rows}, 1fr)`, gridTemplateColumns: `${phoneW + 24}px repeat(3, 1fr)` }}>
+        <div className="bt-phone" {...hit("layout")}><Phone pick={pick} w={phoneW} /></div>
+        {tiles.map((t) => <div key={t.id} style={{ gridColumn: `span ${t.span}`, minHeight: 0 }}>{t.el}</div>)}
       </div>
       <div className="po-foot">{keys.length} parts · {srcs.length} creator{srcs.length === 1 ? "" : "s"} · made with Visual Style Builder</div>
     </div>
   );
 }
 
+// the picture inside a cover tile
+function TileVis({ s, wide }: { s: Saved; wide: boolean }) {
+  const d = s.comp.data || {};
+  if (s.key === "grade" && d.palette) return <div className="bt-pal">{d.palette.slice(0, 6).map((x: any) => <i key={x.hex} style={{ background: x.hex }}><span>{x.hex}</span></i>)}</div>;
+  if (s.key === "broll") { const f = brollFour(s); if (f.length) return <div className={"sv-grid n" + (wide ? Math.min(f.length, 4) : 1)} style={{ padding: 0, gap: 6 }}>{(wide ? f : f.slice(0, 1)).map((u) => <img key={u} src={u} onError={hideBad} />)}</div>; }
+  if (s.key === "person" && d.crops?.[0]) return <img className="sv-full" src={img(s, d.crops[0])} />;
+  if (s.key === "set" && d.image) return <img className="sv-full" src={img(s, d.image)} />;
+  if (s.key === "textcolor" && d.main) return <div className="bt-aa"><span style={{ color: d.main.hex }}>Aa</span>{(d.highlight || d.title_colors?.[0]) && <span style={{ color: (d.highlight || d.title_colors[0]).hex }}>Aa</span>}</div>;
+  return <Glyph s={s} />;
+}
+
+// the picture of one part on its slide
+function SlideVis({ s }: { s: Saved }) {
+  const d = s.comp.data || {};
+  if (s.key === "broll") {
+    const four = brollFour(s);
+    if (four.length) return <div className={"sv-grid n" + four.length}>{four.map((u) => <img key={u} src={u} onError={hideBad} />)}</div>;
+  }
+  if (s.key === "person" && d.crops?.length) {
+    const c: string[] = d.crops.filter((_: any, i: number) => i % 2 === 0).slice(0, 3);
+    return <div className={"sv-grid n" + c.length}>{c.map((f) => <img key={f} src={img(s, f)} onError={hideBad} />)}</div>;
+  }
+  if (s.key === "set" && d.image) return <img className="sv-full" src={img(s, d.image)} />;
+  if ((s.key === "subtitles" || s.key === "typography") && d.crops?.length) {
+    const caps = d.crops.filter((x: any) => x.file.includes("cap_"));
+    const c: any[] = (caps.length ? caps : d.crops).slice(0, 3);
+    return <div className="sv-caps">{c.map((x) => <img key={x.file} src={img(s, x.file)} onError={hideBad} />)}</div>;
+  }
+  if (s.key === "layout") {
+    const sh = d.share || {}, seam = d.seam ?? 0.5, main = d.main;
+    const rows: [string, string, number][] = [["Split screen", "#3ddc97", sh.split || 0], ["Speaker full frame", "#ff9a4d", sh.a_full || 0], ["B-roll full frame", "#b18cff", sh.b_full || 0]];
+    const runs: any[] = d.runs || []; const T = runs.length ? runs[runs.length - 1][2] : 1;
+    return (
+      <div className="sv-lay">
+        <div className="sv-phone">
+          {s.thumb && <img src={img(s, s.thumb)} onError={hideBad} />}
+          {main === "split" ? <>
+            <i style={{ top: 0, height: `${seam * 100}%`, borderColor: "#3ddc97" }}><b style={{ background: "#3ddc97" }}>B-ROLL</b></i>
+            <i style={{ top: `${seam * 100}%`, bottom: 0, borderColor: "#ff9a4d" }}><b style={{ background: "#ff9a4d" }}>SPEAKER</b></i>
+          </> : <i style={{ top: 0, bottom: 0, borderColor: main === "b_full" ? "#b18cff" : "#ff9a4d" }}><b style={{ background: main === "b_full" ? "#b18cff" : "#ff9a4d" }}>{main === "b_full" ? "B-ROLL" : "SPEAKER"}</b></i>}
+        </div>
+        <div className="sv-stats">
+          {rows.filter(([, , v]) => v > 0.005).map(([n, c, v]) => (
+            <div key={n}><span className="dot" style={{ background: c }} /><span className="n">{n}</span><b>{Math.round(v * 100)}%</b></div>
+          ))}
+          <div className="sv-bar">{runs.map((r: any, i: number) => <i key={i} style={{ flex: Math.max(0.001, (r[2] - r[1]) / T), background: r[0] === "split" ? "#3ddc97" : r[0] === "a_full" ? "#ff9a4d" : "#b18cff" }} />)}</div>
+          <div className="sv-cap">the layout over the video, start to end</div>
+        </div>
+      </div>
+    );
+  }
+  return <div className="ps-viz"><Viz c={s.comp} vid={s.vid} size="full" /></div>;
+}
+
 // one TikTok slide for one part
 function PartSlide({ s, i, n, name }: { s: Saved; i: number; n: number; name: string }) {
-  const h = heroImg(s);
   return (
     <div className="po ps" style={{ ["--c" as any]: compColor(s.key) }}>
       <div className="po-glow" />
       <div className="po-eye"><i />{name.toUpperCase()} · {String(i).padStart(2, "0")} / {String(n).padStart(2, "0")}</div>
       <div className="ps-cat"><i />{COMP_SHORT[s.key]}</div>
       <div className="ps-who">{s.thumb && <img src={img(s, s.thumb)} />}<div><b>{who(s)}</b><span>{s.source}</span></div></div>
-      <div className="ps-vis">{h ? <img src={h} /> : <div className="ps-viz"><Viz c={s.comp} vid={s.vid} size="full" /></div>}</div>
+      <div className="ps-vis"><SlideVis s={s} /></div>
       <div className="ps-h">{s.comp.headline}</div>
-      <div className="ps-specs">{s.comp.specs.slice(0, 4).map(([a, b]) => <div key={a}><span>{a}</span><b>{b}</b></div>)}</div>
+      <div className="ps-specs">{s.comp.specs.slice(0, 3).map(([a, b]) => <div key={a}><span>{a}</span><b>{b}</b></div>)}</div>
     </div>
   );
 }
 
-// ---------------------------------------------------------------- export: render off screen at 1080 x 1920, then PNG
 function useExporter(name: string, pick: Pick) {
-  const [job, setJob] = useState<null | "poster" | "slides">(null);
+  const [job, setJob] = useState<null | "poster" | "slides" | "codex">(null);
+  const zipName = useRef("");
+  const guideText = useRef("");     // the style text (saved next to the PNGs)
+  const guideFolder = useRef("");   // where the local server saved them ("" = no local server: a hosted copy of the site)   // "codex": the zip's name (unique, so the copied text names the right file)
   const [busy, setBusy] = useState("");
+  const [sent, setSent] = useState(0);   // "chatgpt": how many PNGs were saved (the panel with the next steps shows while > 0)
   const ref = useRef<HTMLDivElement>(null);
   const slug = name.toLowerCase().replace(/[^a-z0-9]+/g, "-").replace(/^-|-$/g, "") || "my-style";
   useEffect(() => {
@@ -194,9 +265,26 @@ function useExporter(name: string, pick: Pick) {
       const imgs = Array.from(ref.current?.querySelectorAll("img") || []) as HTMLImageElement[];
       await Promise.all(imgs.map((x) => (x.complete ? 0 : new Promise((r) => { x.onload = x.onerror = r; }))));
       const nodes = Array.from(ref.current?.querySelectorAll<HTMLElement>(".po") || []) as HTMLElement[];
-      const shoot = (el: HTMLElement) => toPng(el, { width: 1080, height: 1920, pixelRatio: 1, cacheBust: true });
+      const shoot = (el: HTMLElement) => toPng(el, { width: 1440, height: 1080, pixelRatio: 1, cacheBust: true });
       try {
         if (job === "poster") { download(`${slug}-poster.png`, await (await fetch(await shoot(nodes[0]))).blob(), "image/png"); }
+        else if (job === "codex") {
+          const zip = new JSZip(), dir = zipName.current.replace(/\.zip$/, "");
+          let folder = "";
+          for (let i = 0; i < nodes.length; i++) {
+            setBusy(`image ${i + 1} / ${nodes.length}`);
+            const url = await shoot(nodes[i]), f = `${String(i + 1).padStart(2, "0")}-${slug}.png`;
+            zip.file(f, url.split(",")[1], { base64: true });
+            try {
+              const r = await fetch(`/api/guide-file?dir=${dir}&file=${f}`, { method: "POST", body: await (await fetch(url)).blob() });
+              if (r.ok) folder = (await r.json()).path || folder;
+            } catch {}
+          }
+          if (folder) { try { await fetch(`/api/guide-file?dir=${dir}&file=style.md`, { method: "POST", body: guideText.current }); } catch {} }
+          guideFolder.current = folder;
+          download(zipName.current, await zip.generateAsync({ type: "blob" }), "application/zip");
+          setSent(nodes.length);
+        }
         else {
           const zip = new JSZip();
           for (let i = 0; i < nodes.length; i++) {
@@ -213,24 +301,67 @@ function useExporter(name: string, pick: Pick) {
   const stage = job && createPortal(
     <div className="sm po-off" ref={ref}>
       <Poster name={name} pick={pick} />
-      {job === "slides" && keys.map((k, i) => <PartSlide key={k} s={pick[k]!} i={i + 1} n={keys.length} name={name} />)}
+      {(job === "slides" || job === "codex") && keys.map((k, i) => <PartSlide key={k} s={pick[k]!} i={i + 1} n={keys.length} name={name} />)}
     </div>, document.body);
-  return { run: setJob, busy: job ? busy || "rendering" : "", stage };
+  const newZip = () => { const d = new Date(), z = (n: number) => String(n).padStart(2, "0"); zipName.current = `${slug}-style-guide-${z(d.getHours())}${z(d.getMinutes())}${z(d.getSeconds())}.zip`; return zipName.current; };
+  return { run: setJob, busy: job ? busy || "rendering" : "", stage, sent, clearSent: () => setSent(0), newZip, zipName, guideText, guideFolder };
 }
 
 // ---------------------------------------------------------------- the export column (A + B: under the poster preview; C: in the tray)
 function ExportBar({ name, setName, pick, noName }: { name: string; setName: (s: string) => void; pick: Pick; noName?: boolean }) {
   const ex = useExporter(name, pick);
   const [copied, setCopied] = useState(false);
+  const [textOk, setTextOk] = useState(true);
   const any = COMP_ORDER.some((k) => pick[k]);
+  const md = () => guideMarkdown(name, pick);
+  const toCodex = async () => {
+    ex.clearSent();
+    const zn = ex.newZip();
+    ex.guideText.current = md();
+    ex.guideFolder.current = "";
+    // the text names the folder the local server writes (known only after the export), so the clipboard gets a promise of the text
+    let resolve: (s: string) => void = () => {};
+    const later = new Promise<string>((r) => { resolve = r; });
+    const fallback = () => { setTextOk(false); later.then((text) => download(`${name.toLowerCase().replace(/[^a-z0-9]+/g, "-") || "style"}.md`, text)); };
+    setTextOk(true);
+    try {   // not awaited: the write finishes when the text promise resolves, after the export
+      navigator.clipboard.write([new ClipboardItem({ "text/plain": later.then((s) => new Blob([s], { type: "text/plain" })) })]).catch(fallback);
+    } catch { fallback(); }
+    pending.current = (folder: string) => {
+      // Windows: the server gives a C:\... path; Codex inside WSL reads it as /mnt/c/...
+      const m = folder.match(/^([A-Za-z]):\\(.*)$/);
+      const wsl = m ? `\n(The same folder from WSL / a Linux shell: /mnt/${m[1].toLowerCase()}/${m[2].replace(/\\/g, "/")})` : "";
+      const dl = WIN ? `%USERPROFILE%\\Downloads\\${zn}` : `~/Downloads/${zn}`;
+      const where = folder
+        ? `The style guide images (a cover and one slide per part, with real frames of the reference video(s)) are PNG files in this folder:\n${folder}${wsl}\nOpen and look at every PNG in it (style.md there is this same text).`
+        : `The style guide images are in the zip file "${zn}" in my Downloads folder (${dl}). Unzip it and look at every PNG.`;
+      const text = md() + `\n\n${where} Use them as the visual reference for the colors, framing, B-roll and text.\n`;
+      resolve(text);
+    };
+    ex.run("codex");
+  };
+  const pending = useRef<((f: string) => void) | null>(null);
+  useEffect(() => { if (ex.sent > 0 && pending.current) { pending.current(ex.guideFolder.current); pending.current = null; } }, [ex.sent]);
   return (
     <div className="cx">
       {!noName && <input className="cx-name" value={name} onChange={(e) => setName(e.target.value)} spellCheck={false} />}
       <div className="cx-row">
         <button className="cx-b main" disabled={!any || !!ex.busy} onClick={() => ex.run("slides")}>{ex.busy ? `Exporting · ${ex.busy}` : "Export style guide"}</button>
       </div>
+      <div className="cx-row">
+        <button className="cx-b gpt" disabled={!any || !!ex.busy} onClick={toCodex}>Send to Codex</button>
+      </div>
+      {ex.sent > 0 && !ex.busy && (
+        <div className="cx-gpt">
+          <div>✓ {textOk ? "The style text is copied" : "The style text is saved as a .md file"}</div>
+          <div>✓ {ex.sent} images saved in one zip in Downloads</div>
+          <div className="cx-now">Now open Codex and {textOk ? `press ${WIN ? "Ctrl+V" : "⌘V"}` : "drag the .md file in"}.</div>
+          <div className="cx-how">{ex.guideFolder.current ? "The text tells Codex the folder with the images, so you do not have to attach anything." : "The text tells Codex where the zip is."}</div>
+          <button className="cx-b" onClick={ex.clearSent}>Done</button>
+        </div>
+      )}
       <div className="cx-row small">
-        <button className="cx-b" disabled={!any} onClick={async () => { const md = guideMarkdown(name, pick); try { await navigator.clipboard.writeText(md); setCopied(true); setTimeout(() => setCopied(false), 1500); } catch { download("style.md", md); } }}>{copied ? "Copied ✓" : "Copy for ChatGPT"}</button>
+        <button className="cx-b" disabled={!any} onClick={async () => { try { await navigator.clipboard.writeText(md()); setCopied(true); setTimeout(() => setCopied(false), 1500); } catch { download("style.md", md()); } }}>{copied ? "Copied ✓" : "Copy text only"}</button>
         <button className="cx-b" disabled={!any} onClick={() => download("style.json", JSON.stringify(guideJSON(name, pick), null, 2), "application/json")}>JSON</button>
       </div>
       {ex.stage}
@@ -239,9 +370,9 @@ function ExportBar({ name, setName, pick, noName }: { name: string; setName: (s:
 }
 
 export function PosterPreview({ name, pick, h, onPart, active }: { name: string; pick: Pick; h: number; onPart?: (k: CompKey) => void; active?: CompKey | null }) {
-  const sc = h / 1920;
+  const sc = h / 1080;
   return (
-    <div className="pp" style={{ width: 1080 * sc, height: h }}>
+    <div className="pp" style={{ width: 1440 * sc, height: h }}>
       <div style={{ transform: `scale(${sc})`, transformOrigin: "0 0" }}><Poster name={name} pick={pick} onPart={onPart} active={active} /></div>
     </div>
   );
@@ -575,3 +706,23 @@ export function Builder2({ lib, close, fx }: { lib: Saved[]; close: () => void; 
   );
 }
 const COMP_NUM_OF = (k: CompKey) => String(COMP_ORDER.indexOf(k) + 1).padStart(2, "0");
+
+// ---------------------------------------------------------------- ?guidetest&v=ID&keys=a,b: the export slides of one video, for checks
+export function GuideTest() {
+  const q = new URLSearchParams(location.search), vid = q.get("v") || "";
+  const keys = (q.get("keys") || "layout,broll,grade").split(",") as CompKey[];
+  const [pick, setPick] = useState<Pick | null>(null);
+  useEffect(() => {
+    Promise.all([fetch(`/data/${vid}/style.json`).then((r) => r.json()), fetch(`/data/${vid}/meta.json`).then((r) => r.json()).catch(() => ({}))]).then(([st, m]) => {
+      const pk: Pick = {};
+      keys.forEach((k) => { if (st.components[k]) pk[k] = { uid: k, vid, source: m.name || vid, handle: m.handle || "", key: k, comp: st.components[k], thumb: st.thumb, at: 0 }; });
+      setPick(pk);
+    });
+  }, []);
+  if (!pick) return null;
+  const ks = COMP_ORDER.filter((k) => pick[k]);
+  return <div className="sm" style={{ display: "flex", flexDirection: "column", gap: 40, background: "#000" }}>
+    <Poster name="Style 1" pick={pick} />
+    {ks.map((k, i) => <PartSlide key={k} s={pick[k]!} i={i + 1} n={ks.length} name="Style 1" />)}
+  </div>;
+}

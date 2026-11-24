@@ -12,7 +12,8 @@ splits into 7 layers in 3D, and every part of the style is measured from the rea
 - **Text color**, **Set & lighting**, **Color grade**
 
 Save the parts you like from many videos, combine them into your own styles (Style 1, Style 2 ...), and export a style guide:
-a 9:16 poster + one page per part (PNG), a Markdown guide to paste into ChatGPT, or JSON.
+a 4:3 cover + one page per part (PNG, in a zip), **Send to Codex** (copies the guide; the images are saved where Codex can
+read them, and the copied text tells Codex the folder), or JSON.
 
 Everything runs on your own computer (Mac or Windows). No account, no paid API, no upload to a server.
 

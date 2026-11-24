@@ -77,7 +77,7 @@ for i, f in enumerate(frames):
     prev = hs
     g = cv2.cvtColor(f, cv2.COLOR_BGR2GRAY).astype(np.float32)
     rd = np.abs(np.diff(g, axis=0)).mean(axis=1)  # 959 row differences
-    band = rd[H // 2 - 6: H // 2 + 6]
+    band = rd[H
     seam[i] = band.max() / (np.median(rd) + 1.0)
 log("step features")
 

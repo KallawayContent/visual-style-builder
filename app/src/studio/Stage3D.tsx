@@ -65,9 +65,12 @@ export function layoutAt(runs: any[], t: number) {
   return r ? (r.layout === "split" ? 1 : r.layout === "a_full" ? 0 : 2) : 1;
 }
 export function capBox(caps: any[], t: number) {
-  const on = caps.filter((q: any) => t >= q.t0 - 0.05 && t <= q.t1 + 0.15 && q.box[3] >= 0.025);
-  return on.length ? [Math.min(...on.map((q: any) => q.box[0])) - 0.03, Math.min(...on.map((q: any) => q.box[1])) - 0.015,
-    Math.max(...on.map((q: any) => q.box[0] + q.box[2])) + 0.03, Math.max(...on.map((q: any) => q.box[1] + q.box[3])) + 0.015] : null;
+  const all = caps.filter((q: any) => t >= q.t0 - 0.05 && t <= q.t1 + 0.15 && q.box[3] >= 0.025);
+  const subs = all.filter((q: any) => q.kind === "caption");
+  const on = subs.length ? subs : all;
+  const c = (x: number) => Math.min(0.995, Math.max(0.005, x));
+  return on.length ? [c(Math.min(...on.map((q: any) => q.box[0])) - 0.03), c(Math.min(...on.map((q: any) => q.box[1])) - 0.015),
+    c(Math.max(...on.map((q: any) => q.box[0] + q.box[2])) + 0.03), c(Math.max(...on.map((q: any) => q.box[1] + q.box[3])) + 0.015)] : null;
 }
 
 function Plates(p: StageProps) {
@@ -193,7 +196,8 @@ function Plates(p: StageProps) {
       const vis = xt >= 0 ? seg(e, 0, 0.35) : (isF ? p.focusAmt : 0);
       mat.uniforms.uOpacity.value = vis * dim;
       mat.uniforms.uFill.value = 0.08 * e + 0.86 * pe;
-      mat.uniforms.uBorder.value = (0.55 + h * 0.45 + gl * 0.45) * Math.max(e, isF ? p.focusAmt * 0.6 : 0);
+      mat.uniforms.uBorder.value = (0.55 + h * 0.45 + gl * 0.45) * Math.max(e, isF ? p.focusAmt * 0.6 : 0)
+        * (l.id === "text" ? 1 - pe : 1);
       mat.uniforms.uFlash.value = h * (0.5 + 0.5 * Math.sin(now * 5)) * 0.6 + gl * 0.12;
       mat.uniforms.uLayout.value = lay;
       mat.uniforms.uTime.value = now;
